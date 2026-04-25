@@ -1,0 +1,83 @@
+# =============================================================================
+# GitHub Actions Workflow: Deploy devops-demo-app to DigitalOcean
+# =============================================================================
+# This file automates what you have been doing manually all semester:
+#   1. Install dependencies (npm install)
+#   2. Run the test suite (npm test)
+#   3. Copy the code to your Droplet (scp)
+#   4. Restart the application on the Droplet (ssh + node)
+#
+# Place this file at:  .github/workflows/deploy.yml
+# =============================================================================
+
+name: Deploy to Droplet
+
+# --- TRIGGER ---
+# This workflow runs every time you push to the 'main' branch.
+# Think of this as the starting event in the feedback loop.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out your code from this repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Node.js (same runtime your Droplet uses)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Step 3: Install dependencies and run the test suite
+      # If ANY test fails, the workflow stops here — nothing gets deployed.
+      # This is the "gate" that protects your production server.
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+      # Step 4: Copy the application files to your Droplet
+      # Uses the appleboy/scp-action to handle SSH file transfer.
+      # The three secrets (HOST, USERNAME, PASSWORD) come from your
+      # repository's Settings > Secrets and variables > Actions.
+      - name: Copy files to Droplet
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: root
+          password: ${{ secrets.DROPLET_PASSWORD }}
+          source: "server.js,package.json,package-lock.json,public/"
+          target: /opt/devops-demo-app
+          overwrite: true
+
+      # Step 5: SSH into the Droplet and restart the application
+      # - Install/update dependencies on the server
+      # - Kill any existing instance of the app
+      # - Start the app in the background
+      # - Verify the health endpoint responds with "OK"
+      - name: Restart application
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: root
+          password: ${{ secrets.DROPLET_PASSWORD }}
+          script: |
+            cd /opt/devops-demo-app
+            npm install --production
+            # Stop any running instance (|| true prevents failure if none running)
+            pkill -f "node server.js" || true
+            # Wait for the process to fully stop
+            sleep 2
+            # Start the app in the background, log output to deploy.log
+            nohup node server.js > deploy.log 2>&1 &
+            # Wait for the server to start
+            sleep 3
+            # Verify the health endpoint
+            curl -sf http://localhost:3000/health && echo " — Deploy successful!" || echo " — WARNING: Health check failed!"
