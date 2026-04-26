@@ -62,7 +62,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>DevOps Demo Application for DevOps Course</h1>
+        <h1>Mikenson St Louis DevOps Course</h1>
         
         <div class="status">
             Application Status: <strong>Running</strong>
@@ -70,7 +70,7 @@
         
         <div class="info">
             <h2>Application Information</h2>
-            <p><strong>Version:</strong> 1.0.0</p>
+            <p><strong>Version:</strong> <span id="version">Loading...</span></p>
             <p><strong>Environment:</strong> <span id="environment">Loading...</span></p>
             <p><strong>Server Time:</strong> <span id="server-time">Loading...</span></p>
             <p><strong>Hostname:</strong> <span id="hostname">Loading...</span></p>
@@ -113,6 +113,8 @@
                     document.getElementById('environment').textContent = data.environment;
                     document.getElementById('server-time').textContent = new Date(data.serverTime).toLocaleString();
                     document.getElementById('hostname').textContent = data.hostname;
+                    document.getElementById('version').textContent = data.version;
+
                     
                     // Convert uptime from seconds to readable format
                     const uptime = data.uptime;
